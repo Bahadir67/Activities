@@ -1,1 +1,158 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strava Aktivite Listesi</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Strava Aktivite Listesi - <span id="yearSpan"></span></h1>
+            <script>
+                document.getElementById('yearSpan').textContent = new Date().getFullYear();
+            </script>
+            <button id="authorizeBtn" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+                Strava ile Bağlan
+            </button>
+            <button id="getActivitiesBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded ml-2 hidden">
+                Aktiviteleri Getir
+            </button>
+        </div>
 
+        <div id="activitiesList" class="hidden">
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">İsim</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mesafe (km)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Süre</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ort. Hız</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activitiesTableBody" class="divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="loading" class="hidden text-center py-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '18166';
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities'; // GitHub Pages URL'iniz
+        let accessToken = '';
+
+        // URL'den authorization code'u al
+        const urlParams = new URLSearchParams(window.location.search);
+        const authCode = urlParams.get('code');
+
+        document.getElementById('authorizeBtn').addEventListener('click', () => {
+            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&scope=activity:read_all`;
+            window.location.href = authUrl;
+        });
+
+        document.getElementById('getActivitiesBtn').addEventListener('click', getActivities);
+
+        // Sayfa yüklendiğinde auth code varsa token al
+        if (authCode) {
+            document.getElementById('authorizeBtn').classList.add('hidden');
+            getToken(authCode);
+        }
+
+        async function getToken(code) {
+            const tokenUrl = 'https://www.strava.com/oauth/token';
+            const data = {
+                client_id: CLIENT_ID,
+                client_secret: '8165616867e107b8f2fbd6a6acd3baa067d3eef2',
+                code: code,
+                grant_type: 'authorization_code'
+            };
+
+            try {
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const tokenData = await response.json();
+                accessToken = tokenData.access_token;
+                
+                // Token alındıktan sonra butonu göster
+                document.getElementById('getActivitiesBtn').classList.remove('hidden');
+            } catch (error) {
+                console.error('Token alma hatası:', error);
+            }
+        }
+
+        async function getActivities() {
+            if (!accessToken) {
+                alert('Lütfen önce Strava ile bağlanın!');
+                return;
+            }
+
+            // Loading göster
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('activitiesList').classList.add('hidden');
+
+            // Bu yılın başlangıç tarihini al
+            const currentYear = new Date().getFullYear();
+            const startOfYear = new Date(currentYear, 0, 1); // Ocak 1
+            const startTime = Math.floor(startOfYear.getTime() / 1000); // Unix timestamp
+
+            try {
+                const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${startTime}&per_page=100`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+
+                const activities = await response.json();
+                displayActivities(activities);
+            } catch (error) {
+                console.error('Aktivite alma hatası:', error);
+            } finally {
+                // Loading gizle
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+
+        function displayActivities(activities) {
+            const tableBody = document.getElementById('activitiesTableBody');
+            tableBody.innerHTML = '';
+
+            activities.forEach(activity => {
+                const row = document.createElement('tr');
+                
+                const date = new Date(activity.start_date_local).toLocaleDateString('tr-TR');
+                const distance = (activity.distance / 1000).toFixed(2);
+                const duration = new Date(activity.moving_time * 1000).toISOString().substr(11, 8);
+                const speed = (activity.average_speed * 3.6).toFixed(2);
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${activity.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${activity.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${distance}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${speed}</td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+
+            document.getElementById('activitiesList').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
