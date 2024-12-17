@@ -47,7 +47,7 @@
 
     <script>
         const CLIENT_ID = '18166';
-        const REDIRECT_URI = 'https://bahadir67.github.io/Activities'; // GitHub Pages URL'iniz
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities/index.html'; // GitHub Pages URL'iniz
         let accessToken = '';
 
         // URL'den authorization code'u al
@@ -111,14 +111,34 @@
             const startTime = Math.floor(startOfYear.getTime() / 1000); // Unix timestamp
 
             try {
-                const response = await fetch(`https://www.strava.com/api/v3/athlete/activities?after=${startTime}&per_page=100`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
+                let page = 1;
+                let allActivities = [];
+                let hasMore = true;
 
-                const activities = await response.json();
-                displayActivities(activities);
+                while (hasMore) {
+                    const response = await fetch(
+                        `https://www.strava.com/api/v3/athlete/activities?after=${startTime}&per_page=100&page=${page}`,
+                        {
+                            headers: {
+                                'Authorization': `Bearer ${accessToken}`
+                            }
+                        }
+                    );
+
+                    const activities = await response.json();
+                    
+                    if (activities.length === 0) {
+                        hasMore = false;
+                    } else {
+                        allActivities = [...allActivities, ...activities];
+                        page++;
+                    }
+                }
+
+                // Aktiviteleri tarihe göre sırala (en yeni en üstte)
+                allActivities.sort((a, b) => new Date(b.start_date_local) - new Date(a.start_date_local));
+                
+                displayActivities(allActivities);
             } catch (error) {
                 console.error('Aktivite alma hatası:', error);
             } finally {
@@ -130,6 +150,9 @@
         function displayActivities(activities) {
             const tableBody = document.getElementById('activitiesTableBody');
             tableBody.innerHTML = '';
+            
+            // Başlığa toplam aktivite sayısını ekle
+            document.querySelector('h1').textContent = `Strava Aktivite Listesi (${activities.length} aktivite) - ${new Date().getFullYear()}`;
 
             activities.forEach(activity => {
                 const row = document.createElement('tr');
