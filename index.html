@@ -22,7 +22,34 @@
         </div>
 
         <div id="activitiesList" class="hidden">
-            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="bg-white shadow-md rounded-lg overflow-hidden mb-4">
+                <!-- Filtreler -->
+                <div class="p-4 border-b border-gray-200 bg-gray-50">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <!-- Aktivite Tipi Filtresi -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Aktivite Tipi</label>
+                            <select id="typeFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Tümü</option>
+                            </select>
+                        </div>
+                        <!-- Tarih Aralığı Filtreleri -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Başlangıç Tarihi</label>
+                            <input type="date" id="startDateFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
+                            <input type="date" id="endDateFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <!-- Arama Filtresi -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Aktivite Ara</label>
+                            <input type="text" id="searchFilter" placeholder="İsim ile ara..." class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+
                 <table class="min-w-full">
                     <thead class="bg-gray-100">
                         <tr>
@@ -147,7 +174,69 @@
             }
         }
 
-        function displayActivities(activities) {
+        let allActivities = []; // Tüm aktiviteleri global olarak saklayacağız
+
+        function applyFilters() {
+            const typeFilter = document.getElementById('typeFilter').value;
+            const startDate = document.getElementById('startDateFilter').value;
+            const endDate = document.getElementById('endDateFilter').value;
+            const searchText = document.getElementById('searchFilter').value.toLowerCase();
+
+            let filteredActivities = [...allActivities];
+
+            // Tip filtresi
+            if (typeFilter) {
+                filteredActivities = filteredActivities.filter(activity => 
+                    activity.type === typeFilter
+                );
+            }
+
+            // Tarih filtresi
+            if (startDate) {
+                const startDateTime = new Date(startDate).getTime();
+                filteredActivities = filteredActivities.filter(activity =>
+                    new Date(activity.start_date_local).getTime() >= startDateTime
+                );
+            }
+            if (endDate) {
+                const endDateTime = new Date(endDate + 'T23:59:59').getTime();
+                filteredActivities = filteredActivities.filter(activity =>
+                    new Date(activity.start_date_local).getTime() <= endDateTime
+                );
+            }
+
+            // Arama filtresi
+            if (searchText) {
+                filteredActivities = filteredActivities.filter(activity =>
+                    activity.name.toLowerCase().includes(searchText)
+                );
+            }
+
+            displayActivities(filteredActivities, false);
+        }
+
+        function initializeFilters(activities) {
+            // Aktivite tiplerini topla ve filtreye ekle
+            const types = [...new Set(activities.map(activity => activity.type))].sort();
+            const typeFilter = document.getElementById('typeFilter');
+            typeFilter.innerHTML = '<option value="">Tümü</option>';
+            types.forEach(type => {
+                typeFilter.innerHTML += `<option value="${type}">${type}</option>`;
+            });
+
+            // Filtre event listener'ları
+            document.getElementById('typeFilter').addEventListener('change', applyFilters);
+            document.getElementById('startDateFilter').addEventListener('change', applyFilters);
+            document.getElementById('endDateFilter').addEventListener('change', applyFilters);
+            document.getElementById('searchFilter').addEventListener('input', applyFilters);
+        }
+
+        function displayActivities(activities, isInitialLoad = true) {
+            if (isInitialLoad) {
+                allActivities = activities;
+                initializeFilters(activities);
+            }
+            
             const tableBody = document.getElementById('activitiesTableBody');
             tableBody.innerHTML = '';
             
