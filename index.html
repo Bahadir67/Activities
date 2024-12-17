@@ -288,10 +288,25 @@
             document.getElementById('activitiesList').classList.remove('hidden');
         }
 
+        let currentMap = null; // Global harita değişkeni
+
+        // Modal temizleme fonksiyonu
+        function cleanupModal() {
+            if (currentMap) {
+                currentMap.remove();
+                currentMap = null;
+            }
+            document.getElementById('activityStats').innerHTML = '';
+            document.getElementById('activityDetails').innerHTML = '';
+            document.getElementById('activityMap').innerHTML = '';
+        }
+
         async function showActivityDetails(activityId) {
             const modal = document.getElementById('activityModal');
             const statsDiv = document.getElementById('activityStats');
-            const detailsDiv = document.getElementById('activityDetails');
+            
+            // Önceki içeriği temizle
+            cleanupModal();
             
             modal.classList.remove('hidden');
             statsDiv.innerHTML = '<div class="col-span-2">Yükleniyor...</div>';
@@ -303,6 +318,10 @@
                     }
                 });
                 
+                if (!response.ok) {
+                    throw new Error('Aktivite detayları alınamadı');
+                }
+
                 const activity = await response.json();
                 
                 // İstatistikleri göster
@@ -325,22 +344,10 @@
                         <div class="font-semibold">${(activity.max_speed * 3.6).toFixed(2)} km/s</div>
                     </div>
                     ` : ''}
-                    ${activity.total_elevation_gain ? `
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Toplam Tırmanış</div>
-                        <div class="font-semibold">${activity.total_elevation_gain} m</div>
-                    </div>
-                    ` : ''}
-                    ${activity.average_heartrate ? `
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Ortalama Nabız</div>
-                        <div class="font-semibold">${Math.round(activity.average_heartrate)} bpm</div>
-                    </div>
-                    ` : ''}
                 `;
                 
                 // Detayları göster
-                detailsDiv.innerHTML = `
+                document.getElementById('activityDetails').innerHTML = `
                     <div><strong>Başlangıç:</strong> ${new Date(activity.start_date_local).toLocaleString('tr-TR')}</div>
                     <div><strong>Konum:</strong> ${activity.location_city || 'Belirtilmemiş'}</div>
                     ${activity.description ? `<div><strong>Açıklama:</strong> ${activity.description}</div>` : ''}
@@ -348,39 +355,71 @@
                 
                 // Haritayı göster
                 if (activity.map?.summary_polyline) {
-                    showMap(activity.map.summary_polyline);
+                    setTimeout(() => {
+                        showMap(activity.map.summary_polyline);
+                    }, 100); // Küçük bir gecikme ekleyerek DOM'un hazır olmasını sağla
                 } else {
                     document.getElementById('activityMap').innerHTML = 'Bu aktivite için harita bulunmuyor.';
                 }
                 
             } catch (error) {
                 console.error('Aktivite detayları alınırken hata:', error);
-                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu.';
+                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu. Lütfen tekrar deneyin.';
             }
         }
 
-        // Harita gösterme fonksiyonu
         function showMap(polyline) {
             const mapDiv = document.getElementById('activityMap');
             mapDiv.innerHTML = '';
             
-            const map = L.map(mapDiv);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-            
-            // Polyline'ı decode et ve haritaya ekle
-            const coordinates = decodePolyline(polyline);
-            if (coordinates.length > 0) {
-                const path = L.polyline(coordinates, {
-                    color: 'red',
-                    weight: 3
-                }).addTo(map);
+            try {
+                if (currentMap) {
+                    currentMap.remove();
+                }
                 
-                // Haritayı rotaya göre ortala
-                map.fitBounds(path.getBounds());
+                currentMap = L.map(mapDiv);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(currentMap);
+                
+                const coordinates = decodePolyline(polyline);
+                if (coordinates && coordinates.length > 0) {
+                    const path = L.polyline(coordinates, {
+                        color: 'red',
+                        weight: 3
+                    }).addTo(currentMap);
+                    
+                    currentMap.fitBounds(path.getBounds());
+                } else {
+                    mapDiv.innerHTML = 'Harita verisi işlenirken bir hata oluştu.';
+                }
+            } catch (error) {
+                console.error('Harita gösterilirken hata:', error);
+                mapDiv.innerHTML = 'Harita yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
             }
         }
+
+        // Modal kapatma işleyicileri
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('activityModal').classList.add('hidden');
+            cleanupModal();
+        });
+
+        // ESC tuşu ile modalı kapatma
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('activityModal').classList.add('hidden');
+                cleanupModal();
+            }
+        });
+
+        // Modal dışına tıklama ile kapatma
+        document.getElementById('activityModal').addEventListener('click', (e) => {
+            if (e.target.id === 'activityModal') {
+                e.target.classList.add('hidden');
+                cleanupModal();
+            }
+        });
 
         // Polyline decoder fonksiyonu
         function decodePolyline(str, precision = 5) {
