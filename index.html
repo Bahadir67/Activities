@@ -1,238 +1,4 @@
-// Bölüm zamanları tablosu
-        function displaySplits(splits) {
-            const splitsTable = document.getElementById('splitsTable');
-            if (!splits || splits.length === 0) {
-                splitsTable.innerHTML = '<p class="p-4 text-gray-500">Bölüm zamanları mevcut değil</p>';
-                return;
-            }
-
-            let html = `
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bölüm</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mesafe</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Süre</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ortalama Hız</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Yükselti</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-            `;
-
-            splits.forEach((split, index) => {
-                html += `
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${index + 1}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(split.distance / 1000).toFixed(2)} km</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(split.moving_time * 1000).toISOString().substr(14, 5)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(split.average_speed * 3.6).toFixed(2)} km/s</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${split.elevation_difference} m</td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                </tbody>
-            </table>`;
-
-            splitsTable.innerHTML = html;
-        }
-
-        // Fotoğraf galerisi
-        async function displayPhotos(activityId) {
-            const photosGrid = document.getElementById('photosGrid');
-            
-            try {
-                const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=false`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-
-                const activity = await response.json();
-                
-                if (activity.photos && activity.photos.primary) {
-                    const photos = activity.photos.primary;
-                    photosGrid.innerHTML = `
-                        <div class="relative group">
-                            <img src="${photos.urls[600]}" alt="Aktivite fotoğrafı" 
-                                 class="w-full h-64 object-cover rounded-lg">
-                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 rounded-lg"></div>
-                        </div>
-                    `;
-                } else {
-                    photosGrid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">Bu aktivite için fotoğraf bulunmuyor</p>';
-                }
-            } catch (error) {
-                console.error('Fotoğraf yükleme hatası:', error);
-                photosGrid.innerHTML = '<p class="col-span-full text-center text-red-500 py-8">Fotoğraflar yüklenirken bir hata oluştu</p>';
-            }
-        }
-
-        // Event Listeners
-        document.getElementById('downloadGpx').addEventListener('click', () => {
-            const activityId = currentActivityId; // Global değişken olarak tanımlanmalı
-            downloadGpx(activityId);
-        });
-
-        document.getElementById('shareActivity').addEventListener('click', () => {
-            shareActivity(currentActivity); // Global        async function showActivityDetails(activityId) {
-            const modal = document.getElementById('activityModal');
-            const statsDiv = document.getElementById('activityStats');
-            const detailsDiv = document.getElementById('activityDetails');
-            
-            modal.classList.remove('hidden');
-            statsDiv.innerHTML = '<div class="col-span-2">Yükleniyor...</div>';
-            
-            try {
-                const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=true`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    }
-                });
-                
-                const activity = await response.json();
-                
-                // İstatistikleri göster
-                statsDiv.innerHTML = `
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Mesafe</div>
-                        <div class="font-semibold">${(activity.distance / 1000).toFixed(2)} km</div>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Süre</div>
-                        <div class="font-semibold">${new Date(activity.moving_time * 1000).toISOString().substr(11, 8)}</div>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Ortalama Hız</div>
-                        <div class="font-semibold">${(activity.average_speed * 3.6).toFixed(2)} km/s</div>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Maksimum Hız</div>
-                        <div class="font-semibold">${(activity.max_speed * 3.6).toFixed(2)} km/s</div>
-                    </div>
-                    ${activity.total_elevation_gain ? `
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Toplam Tırmanış</div>
-                        <div class="font-semibold">${activity.total_elevation_gain} m</div>
-                    </div>
-                    ` : ''}
-                    ${activity.average_heartrate ? `
-                    <div class="bg-gray-50 p-3 rounded">
-                        <div class="text-sm text-gray-500">Ortalama Nabız</div>
-                        <div class="font-semibold">${Math.round(activity.average_heartrate)} bpm</div>
-                    </div>
-                    ` : ''}
-                `;
-                
-                // Detayları göster
-                detailsDiv.innerHTML = `
-                    <div><strong>Başlangıç:</strong> ${new Date(activity.start_date_local).toLocaleString('tr-TR')}</div>
-                    <div><strong>Konum:</strong> ${activity.location_city || 'Belirtilmemiş'}</div>
-                    ${activity.description ? `<div><strong>Açıklama:</strong> ${activity.description}</div>` : ''}
-                `;
-                
-                // Strava bağlantısını güncelle
-                document.getElementById('stravaLink').href = `https://www.strava.com/activities/${activity.id}`;
-                
-                // Haritayı göster
-                if (activity.map?.summary_polyline) {
-                    showMap(activity.map.summary_polyline);
-                } else {
-                    document.getElementById('activityMap').innerHTML = 'Bu aktivite için harita bulunmuyor.';
-                }
-                
-            } catch (error) {
-                console.error('Aktivite detayları alınırken hata:', error);
-                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu.';
-            }
-        }
-        
-        function showMap(polyline) {
-            const mapDiv = document.getElementById('activityMap');
-            mapDiv.innerHTML = '';
-            
-            const map = L.map(mapDiv);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-            
-            // Polyline'ı decode et ve haritaya ekle
-            const coordinates = decodePolyline(polyline);
-            if (coordinates.length > 0) {
-                const path = L.polyline(coordinates, {
-                    color: 'red',
-                    weight: 3
-                }).addTo(map);
-                
-                // Haritayı rotaya göre ortala
-                map.fitBounds(path.getBounds());
-            }
-        }
-        
-        // Polyline decoder fonksiyonu
-        function decodePolyline(str, precision = 5) {
-            let index = 0,
-                lat = 0,
-                lng = 0,
-                coordinates = [],
-                shift = 0,
-                result = 0,
-                byte = null,
-                latitude_change,
-                longitude_change,
-                factor = Math.pow(10, precision);
-
-            while (index < str.length) {
-                byte = null;
-                shift = 0;
-                result = 0;
-
-                do {
-                    byte = str.charCodeAt(index++) - 63;
-                    result |= (byte & 0x1f) << shift;
-                    shift += 5;
-                } while (byte >= 0x20);
-
-                latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-                shift = result = 0;
-
-                do {
-                    byte = str.charCodeAt(index++) - 63;
-                    result |= (byte & 0x1f) << shift;
-                    shift += 5;
-                } while (byte >= 0x20);
-
-                longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
-
-                lat += latitude_change;
-                lng += longitude_change;
-
-                coordinates.push([lat / factor, lng / factor]);
-            }
-
-            return coordinates;
-        }
-        
-        // Modal kapatma işlemleri
-        document.getElementById('closeModal').addEventListener('click', () => {
-            document.getElementById('activityModal').classList.add('hidden');
-        });
-        
-        // ESC tuşu ile modalı kapatma
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                document.getElementById('activityModal').classList.add('hidden');
-            }
-        });
-        
-        // Modal dışına tıklama ile kapatma
-        document.getElementById('activityModal').addEventListener('click', (e) => {
-            if (e.target.id === 'activityModal') {
-                e.target.classList.add('hidden');
-            }
-        });<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -241,148 +7,9 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.6.0/leaflet.polylineDecorator.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
-    <style>
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .activity-icon {
-            font-size: 1.2em;
-            margin-right: 0.5em;
-        }
-    </style>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- Mevcut içerik -->
-        
-        <!-- Aktivite Detay Modal -->
-        <div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-4/5 shadow-lg rounded-md bg-white">
-                <!-- Modal Header -->
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">
-                        <i class="activity-icon"></i>
-                        <span id="modalTitleText">Aktivite Detayları</span>
-                    </h3>
-                    <button id="closeModal" class="text-gray-600 hover:text-gray-900">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Özet İstatistikler -->
-                <div id="activityStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <!-- İstatistikler buraya gelecek -->
-                </div>
-
-                <!-- Sekmeler -->
-                <div class="border-b border-gray-200 mb-4">
-                    <nav class="flex space-x-4" aria-label="Tabs">
-                        <button class="tab-button px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" data-tab="details">
-                            <i class="fas fa-info-circle"></i> Detaylar
-                        </button>
-                        <button class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="map">
-                            <i class="fas fa-map-marked-alt"></i> Harita
-                        </button>
-                        <button class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="charts">
-                            <i class="fas fa-chart-line"></i> Grafikler
-                        </button>
-                        <button class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="splits">
-                            <i class="fas fa-stopwatch"></i> Bölümler
-                        </button>
-                        <button class="tab-button px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="photos">
-                            <i class="fas fa-images"></i> Fotoğraflar
-                        </button>
-                    </nav>
-                </div>
-
-                <!-- Sekme İçerikleri -->
-                <div class="tab-contents">
-                    <!-- Detaylar Sekmesi -->
-                    <div id="details-tab" class="tab-content active">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div id="activityDetails" class="space-y-2">
-                                <!-- Detaylı bilgiler buraya gelecek -->
-                            </div>
-                            <div class="space-y-2">
-                                <div id="weatherInfo" class="bg-gray-50 p-4 rounded">
-                                    <!-- Hava durumu bilgileri -->
-                                </div>
-                                <div id="socialInfo" class="bg-gray-50 p-4 rounded">
-                                    <!-- Kudos ve yorumlar -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Harita Sekmesi -->
-                    <div id="map-tab" class="tab-content">
-                        <div id="activityMap" class="h-96 bg-gray-100 rounded-lg">
-                            <!-- Harita buraya gelecek -->
-                        </div>
-                    </div>
-
-                    <!-- Grafikler Sekmesi -->
-                    <div id="charts-tab" class="tab-content">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-white p-4 rounded-lg shadow">
-                                <h4 class="text-lg font-semibold mb-2">Yükseklik Profili</h4>
-                                <canvas id="elevationChart"></canvas>
-                            </div>
-                            <div class="bg-white p-4 rounded-lg shadow">
-                                <h4 class="text-lg font-semibold mb-2">Hız Grafiği</h4>
-                                <canvas id="speedChart"></canvas>
-                            </div>
-                            <div class="bg-white p-4 rounded-lg shadow">
-                                <h4 class="text-lg font-semibold mb-2">Nabız Grafiği</h4>
-                                <canvas id="heartrateChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bölümler Sekmesi -->
-                    <div id="splits-tab" class="tab-content">
-                        <div id="splitsTable" class="bg-white rounded-lg shadow overflow-hidden">
-                            <!-- Bölüm zamanları tablosu -->
-                        </div>
-                    </div>
-
-                    <!-- Fotoğraflar Sekmesi -->
-                    <div id="photos-tab" class="tab-content">
-                        <div id="photosGrid" class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <!-- Fotoğraflar buraya gelecek -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal Footer -->
-                <div class="mt-4 flex justify-between items-center">
-                    <div class="space-x-2">
-                        <a id="stravaLink" href="#" target="_blank" 
-                           class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded inline-flex items-center">
-                            <i class="fab fa-strava mr-2"></i> Strava'da Gör
-                        </a>
-                        <button id="downloadGpx" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded inline-flex items-center">
-                            <i class="fas fa-download mr-2"></i> GPX İndir
-                        </button>
-                        <button id="shareActivity" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded inline-flex items-center">
-                            <i class="fas fa-share-alt mr-2"></i> Paylaş
-                        </button>
-                    </div>
-                    <div class="text-sm text-gray-500">
-                        Son güncelleme: <span id="lastUpdate"></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-800 mb-4">Strava Aktivite Listesi - <span id="yearSpan"></span></h1>
             <script>
@@ -397,34 +24,7 @@
         </div>
 
         <div id="activitiesList" class="hidden">
-            <div class="bg-white shadow-md rounded-lg overflow-hidden mb-4">
-                <!-- Filtreler -->
-                <div class="p-4 border-b border-gray-200 bg-gray-50">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <!-- Aktivite Tipi Filtresi -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Aktivite Tipi</label>
-                            <select id="typeFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Tümü</option>
-                            </select>
-                        </div>
-                        <!-- Tarih Aralığı Filtreleri -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Başlangıç Tarihi</label>
-                            <input type="date" id="startDateFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
-                            <input type="date" id="endDateFilter" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                        <!-- Arama Filtresi -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Aktivite Ara</label>
-                            <input type="text" id="searchFilter" placeholder="İsim ile ara..." class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                    </div>
-                </div>
-
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
                 <table class="min-w-full">
                     <thead class="bg-gray-100">
                         <tr>
@@ -442,14 +42,37 @@
             </div>
         </div>
 
-        <div id="loading" class="hidden text-center py-4">
-            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+        <!-- Basit Modal -->
+        <div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-4/5 shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">Aktivite Detayları</h3>
+                    <button id="closeModal" class="text-gray-600 hover:text-gray-900">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="activityStats" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <!-- İstatistikler buraya gelecek -->
+                </div>
+                
+                <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="activityDetails" class="space-y-2">
+                        <!-- Detaylar buraya gelecek -->
+                    </div>
+                    <div id="activityMap" class="h-96 bg-gray-100 rounded-lg">
+                        <!-- Harita buraya gelecek -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const CLIENT_ID = '18166';
-        const REDIRECT_URI = 'https://bahadir67.github.io/Activities/index.html'; // GitHub Pages URL'iniz
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities';
         let accessToken = '';
 
         // URL'den authorization code'u al
@@ -462,7 +85,7 @@
         });
 
         document.getElementById('getActivitiesBtn').addEventListener('click', getActivities);
-
+        
         // Sayfa yüklendiğinde auth code varsa token al
         if (authCode) {
             document.getElementById('authorizeBtn').classList.add('hidden');
@@ -537,86 +160,17 @@
                     }
                 }
 
-                // Aktiviteleri tarihe göre sırala (en yeni en üstte)
-                allActivities.sort((a, b) => new Date(b.start_date_local) - new Date(a.start_date_local));
-                
                 displayActivities(allActivities);
             } catch (error) {
                 console.error('Aktivite alma hatası:', error);
             } finally {
-                // Loading gizle
-                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('loading').classList.remove('hidden');
             }
         }
 
-        let allActivities = []; // Tüm aktiviteleri global olarak saklayacağız
-
-        function applyFilters() {
-            const typeFilter = document.getElementById('typeFilter').value;
-            const startDate = document.getElementById('startDateFilter').value;
-            const endDate = document.getElementById('endDateFilter').value;
-            const searchText = document.getElementById('searchFilter').value.toLowerCase();
-
-            let filteredActivities = [...allActivities];
-
-            // Tip filtresi
-            if (typeFilter) {
-                filteredActivities = filteredActivities.filter(activity => 
-                    activity.type === typeFilter
-                );
-            }
-
-            // Tarih filtresi
-            if (startDate) {
-                const startDateTime = new Date(startDate).getTime();
-                filteredActivities = filteredActivities.filter(activity =>
-                    new Date(activity.start_date_local).getTime() >= startDateTime
-                );
-            }
-            if (endDate) {
-                const endDateTime = new Date(endDate + 'T23:59:59').getTime();
-                filteredActivities = filteredActivities.filter(activity =>
-                    new Date(activity.start_date_local).getTime() <= endDateTime
-                );
-            }
-
-            // Arama filtresi
-            if (searchText) {
-                filteredActivities = filteredActivities.filter(activity =>
-                    activity.name.toLowerCase().includes(searchText)
-                );
-            }
-
-            displayActivities(filteredActivities, false);
-        }
-
-        function initializeFilters(activities) {
-            // Aktivite tiplerini topla ve filtreye ekle
-            const types = [...new Set(activities.map(activity => activity.type))].sort();
-            const typeFilter = document.getElementById('typeFilter');
-            typeFilter.innerHTML = '<option value="">Tümü</option>';
-            types.forEach(type => {
-                typeFilter.innerHTML += `<option value="${type}">${type}</option>`;
-            });
-
-            // Filtre event listener'ları
-            document.getElementById('typeFilter').addEventListener('change', applyFilters);
-            document.getElementById('startDateFilter').addEventListener('change', applyFilters);
-            document.getElementById('endDateFilter').addEventListener('change', applyFilters);
-            document.getElementById('searchFilter').addEventListener('input', applyFilters);
-        }
-
-        function displayActivities(activities, isInitialLoad = true) {
-            if (isInitialLoad) {
-                allActivities = activities;
-                initializeFilters(activities);
-            }
-            
+        function displayActivities(activities) {
             const tableBody = document.getElementById('activitiesTableBody');
             tableBody.innerHTML = '';
-            
-            // Başlığa toplam aktivite sayısını ekle
-            document.querySelector('h1').textContent = `Strava Aktivite Listesi (${activities.length} aktivite) - ${new Date().getFullYear()}`;
 
             activities.forEach(activity => {
                 const row = document.createElement('tr');
@@ -634,15 +188,179 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${speed}</td>
                 `;
-                
+
                 row.classList.add('hover:bg-gray-50', 'cursor-pointer');
                 row.addEventListener('click', () => showActivityDetails(activity.id));
-
+                
                 tableBody.appendChild(row);
             });
 
             document.getElementById('activitiesList').classList.remove('hidden');
         }
+
+        async function showActivityDetails(activityId) {
+            const modal = document.getElementById('activityModal');
+            const statsDiv = document.getElementById('activityStats');
+            const detailsDiv = document.getElementById('activityDetails');
+            
+            modal.classList.remove('hidden');
+            statsDiv.innerHTML = '<div class="col-span-2">Yükleniyor...</div>';
+            
+            try {
+                const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=true`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                const activity = await response.json();
+                
+                // İstatistikleri göster
+                statsDiv.innerHTML = `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Mesafe</div>
+                        <div class="font-semibold">${(activity.distance / 1000).toFixed(2)} km</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Süre</div>
+                        <div class="font-semibold">${new Date(activity.moving_time * 1000).toISOString().substr(11, 8)}</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Ortalama Hız</div>
+                        <div class="font-semibold">${(activity.average_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    ${activity.max_speed ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Maksimum Hız</div>
+                        <div class="font-semibold">${(activity.max_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    ` : ''}
+                    ${activity.total_elevation_gain ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Toplam Tırmanış</div>
+                        <div class="font-semibold">${activity.total_elevation_gain} m</div>
+                    </div>
+                    ` : ''}
+                    ${activity.average_heartrate ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Ortalama Nabız</div>
+                        <div class="font-semibold">${Math.round(activity.average_heartrate)} bpm</div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                // Detayları göster
+                detailsDiv.innerHTML = `
+                    <div><strong>Başlangıç:</strong> ${new Date(activity.start_date_local).toLocaleString('tr-TR')}</div>
+                    <div><strong>Konum:</strong> ${activity.location_city || 'Belirtilmemiş'}</div>
+                    ${activity.description ? `<div><strong>Açıklama:</strong> ${activity.description}</div>` : ''}
+                `;
+                
+                // Haritayı göster
+                if (activity.map?.summary_polyline) {
+                    showMap(activity.map.summary_polyline);
+                } else {
+                    document.getElementById('activityMap').innerHTML = 'Bu aktivite için harita bulunmuyor.';
+                }
+                
+            } catch (error) {
+                console.error('Aktivite detayları alınırken hata:', error);
+                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu.';
+            }
+        }
+
+        // Harita gösterme fonksiyonu
+        function showMap(polyline) {
+            const mapDiv = document.getElementById('activityMap');
+            mapDiv.innerHTML = '';
+            
+            const map = L.map(mapDiv);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Polyline'ı decode et ve haritaya ekle
+            const coordinates = decodePolyline(polyline);
+            if (coordinates.length > 0) {
+                const path = L.polyline(coordinates, {
+                    color: 'red',
+                    weight: 3
+                }).addTo(map);
+                
+                // Haritayı rotaya göre ortala
+                map.fitBounds(path.getBounds());
+            }
+        }
+
+        // Polyline decoder fonksiyonu
+        function decodePolyline(str, precision = 5) {
+            let index = 0,
+                lat = 0,
+                lng = 0,
+                coordinates = [],
+                shift = 0,
+                result = 0,
+                byte = null,
+                latitude_change,
+                longitude_change,
+                factor = Math.pow(10, precision);
+
+            while (index < str.length) {
+                byte = null;
+                shift = 0;
+                result = 0;
+
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+
+                latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                shift = result = 0;
+
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+
+                longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+
+                lat += latitude_change;
+                lng += longitude_change;
+
+                coordinates.push([lat / factor, lng / factor]);
+            }
+
+            return coordinates;
+        }
+
+        // Modal kapatma işleyicileri
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('activityModal').classList.add('hidden');
+        });
+
+        // ESC tuşu ile modalı kapatma
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('activityModal').classList.add('hidden');
+            }
+        });
+
+        // Modal dışına tıklama ile kapatma
+        document.getElementById('activityModal').addEventListener('click', (e) => {
+            if (e.target.id === 'activityModal') {
+                e.target.classList.add('hidden');
+            }
+        });
+
+        // Loading spinner div'i
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loading';
+        loadingDiv.className = 'hidden text-center py-4';
+        loadingDiv.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>';
+        document.querySelector('.container').appendChild(loadingDiv);
     </script>
 </body>
 </html>
