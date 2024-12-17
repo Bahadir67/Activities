@@ -1,13 +1,215 @@
-<!DOCTYPE html>
+async function showActivityDetails(activityId) {
+            const modal = document.getElementById('activityModal');
+            const statsDiv = document.getElementById('activityStats');
+            const detailsDiv = document.getElementById('activityDetails');
+            
+            modal.classList.remove('hidden');
+            statsDiv.innerHTML = '<div class="col-span-2">Yükleniyor...</div>';
+            
+            try {
+                const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=true`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                const activity = await response.json();
+                
+                // İstatistikleri göster
+                statsDiv.innerHTML = `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Mesafe</div>
+                        <div class="font-semibold">${(activity.distance / 1000).toFixed(2)} km</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Süre</div>
+                        <div class="font-semibold">${new Date(activity.moving_time * 1000).toISOString().substr(11, 8)}</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Ortalama Hız</div>
+                        <div class="font-semibold">${(activity.average_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Maksimum Hız</div>
+                        <div class="font-semibold">${(activity.max_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    ${activity.total_elevation_gain ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Toplam Tırmanış</div>
+                        <div class="font-semibold">${activity.total_elevation_gain} m</div>
+                    </div>
+                    ` : ''}
+                    ${activity.average_heartrate ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Ortalama Nabız</div>
+                        <div class="font-semibold">${Math.round(activity.average_heartrate)} bpm</div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                // Detayları göster
+                detailsDiv.innerHTML = `
+                    <div><strong>Başlangıç:</strong> ${new Date(activity.start_date_local).toLocaleString('tr-TR')}</div>
+                    <div><strong>Konum:</strong> ${activity.location_city || 'Belirtilmemiş'}</div>
+                    ${activity.description ? `<div><strong>Açıklama:</strong> ${activity.description}</div>` : ''}
+                `;
+                
+                // Strava bağlantısını güncelle
+                document.getElementById('stravaLink').href = `https://www.strava.com/activities/${activity.id}`;
+                
+                // Haritayı göster
+                if (activity.map?.summary_polyline) {
+                    showMap(activity.map.summary_polyline);
+                } else {
+                    document.getElementById('activityMap').innerHTML = 'Bu aktivite için harita bulunmuyor.';
+                }
+                
+            } catch (error) {
+                console.error('Aktivite detayları alınırken hata:', error);
+                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu.';
+            }
+        }
+        
+        function showMap(polyline) {
+            const mapDiv = document.getElementById('activityMap');
+            mapDiv.innerHTML = '';
+            
+            const map = L.map(mapDiv);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Polyline'ı decode et ve haritaya ekle
+            const coordinates = decodePolyline(polyline);
+            if (coordinates.length > 0) {
+                const path = L.polyline(coordinates, {
+                    color: 'red',
+                    weight: 3
+                }).addTo(map);
+                
+                // Haritayı rotaya göre ortala
+                map.fitBounds(path.getBounds());
+            }
+        }
+        
+        // Polyline decoder fonksiyonu
+        function decodePolyline(str, precision = 5) {
+            let index = 0,
+                lat = 0,
+                lng = 0,
+                coordinates = [],
+                shift = 0,
+                result = 0,
+                byte = null,
+                latitude_change,
+                longitude_change,
+                factor = Math.pow(10, precision);
+
+            while (index < str.length) {
+                byte = null;
+                shift = 0;
+                result = 0;
+
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+
+                latitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+                shift = result = 0;
+
+                do {
+                    byte = str.charCodeAt(index++) - 63;
+                    result |= (byte & 0x1f) << shift;
+                    shift += 5;
+                } while (byte >= 0x20);
+
+                longitude_change = ((result & 1) ? ~(result >> 1) : (result >> 1));
+
+                lat += latitude_change;
+                lng += longitude_change;
+
+                coordinates.push([lat / factor, lng / factor]);
+            }
+
+            return coordinates;
+        }
+        
+        // Modal kapatma işlemleri
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('activityModal').classList.add('hidden');
+        });
+        
+        // ESC tuşu ile modalı kapatma
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('activityModal').classList.add('hidden');
+            }
+        });
+        
+        // Modal dışına tıklama ile kapatma
+        document.getElementById('activityModal').addEventListener('click', (e) => {
+            if (e.target.id === 'activityModal') {
+                e.target.classList.add('hidden');
+            }
+        });<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Strava Aktivite Listesi</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-polylinedecorator/1.6.0/leaflet.polylineDecorator.min.js"></script>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
+        <!-- Mevcut içerik -->
+        
+        <!-- Aktivite Detay Modal -->
+        <div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-4/5 shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">Aktivite Detayları</h3>
+                    <button id="closeModal" class="text-gray-600 hover:text-gray-900">
+                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Sol taraf: Aktivite Detayları -->
+                    <div class="space-y-4">
+                        <div id="activityStats" class="grid grid-cols-2 gap-4">
+                            <!-- İstatistikler buraya gelecek -->
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <h4 class="font-semibold text-lg">Detaylı Bilgiler</h4>
+                            <div id="activityDetails" class="space-y-2">
+                                <!-- Detaylı bilgiler buraya gelecek -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Sağ taraf: Harita -->
+                    <div class="h-96 bg-gray-100 rounded-lg" id="activityMap">
+                        <!-- Harita buraya gelecek -->
+                    </div>
+                </div>
+                
+                <div class="mt-4" id="modalFooter">
+                    <a id="stravaLink" href="#" target="_blank" 
+                       class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded inline-flex items-center">
+                        Strava'da Gör
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-800 mb-4">Strava Aktivite Listesi - <span id="yearSpan"></span></h1>
             <script>
@@ -259,6 +461,9 @@
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${speed}</td>
                 `;
+                
+                row.classList.add('hover:bg-gray-50', 'cursor-pointer');
+                row.addEventListener('click', () => showActivityDetails(activity.id));
 
                 tableBody.appendChild(row);
             });
