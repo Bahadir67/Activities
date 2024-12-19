@@ -200,7 +200,7 @@
                 );
                 const activity = await activityResponse.json();
 
-                // Stream verisini alırken power'ı da ekleyin:
+                // Stream verilerini al
                 const streamsResponse = await fetch(
                     `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,latlng,altitude,cadence,grade_smooth,watts&key_by_type=true`,
                     {
@@ -230,9 +230,13 @@
         function displayActivityStats(activity, streams) {
             const statsDiv = document.getElementById('activityStats');
             
-            // Ortalama kadans hesapla
+            // Ortalama kadans ve güç hesapla
             const avgCadence = streams.cadence?.data ? 
                 Math.round(streams.cadence.data.reduce((a, b) => a + b, 0) / streams.cadence.data.length) : 
+                null;
+            
+            const avgPower = streams.watts?.data ? 
+                Math.round(streams.watts.data.reduce((a, b) => a + b, 0) / streams.watts.data.length) : 
                 null;
 
             statsDiv.innerHTML = `
@@ -254,6 +258,12 @@
                     <div class="text-lg font-semibold">${avgCadence} rpm</div>
                 </div>
                 ` : ''}
+                ${avgPower ? `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Ortalama Güç</div>
+                    <div class="text-lg font-semibold">${avgPower}w</div>
+                </div>
+                ` : ''}
             `;
         }
 
@@ -272,7 +282,8 @@
                 latlng: L.latLng(coord[0], coord[1]),
                 altitude: streams.altitude?.data[i],
                 cadence: streams.cadence?.data[i],
-                grade: streams.grade_smooth?.data[i]
+                grade: streams.grade_smooth?.data[i],
+                power: streams.watts?.data[i]
             }));
 
             // Ana rotayı çiz
@@ -289,63 +300,63 @@
         }
 
         function drawElevationProfile(points) {
-    const canvas = document.getElementById('elevationCanvas');
-    const ctx = canvas.getContext('2d');
-    const container = document.getElementById('elevationProfile');
-    
-    // Canvas boyutlarını ayarla
-    canvas.width = container.offsetWidth - 20;
-    canvas.height = container.offsetHeight - 20;
-    
-    // Yükseklik değerlerini al
-    const elevations = points.map(p => p.altitude || 0);
-    const minElevation = Math.min(...elevations);
-    const maxElevation = Math.max(...elevations);
-    const elevationRange = maxElevation - minElevation;
-    
-    // Çizim alanı marjinleri
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 };
-    const width = canvas.width - margin.left - margin.right;
-    const height = canvas.height - margin.top - margin.bottom;
-    
-    // Ölçeklendirme fonksiyonları
-    const scaleX = width / (points.length - 1);
-    const scaleY = height / elevationRange;
-
-    function drawBaseProfile() {
-        // Izgara
-        ctx.beginPath();
-        ctx.strokeStyle = '#e5e5e5';
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i <= 5; i++) {
-            const y = margin.top + (height * i / 5);
-            ctx.moveTo(margin.left, y);
-            ctx.lineTo(width + margin.left, y);
+            const canvas = document.getElementById('elevationCanvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('elevationProfile');
             
-            const elevation = Math.round(maxElevation - (elevationRange * i / 5));
-            ctx.fillStyle = '#666';
-            ctx.font = '10px Arial';
-            ctx.fillText(`${elevation}m`, 5, y + 4);
-        }
-        ctx.stroke();
+            // Canvas boyutlarını ayarla
+            canvas.width = container.offsetWidth - 20;
+            canvas.height = container.offsetHeight - 20;
+            
+            // Yükseklik değerlerini al
+            const elevations = points.map(p => p.altitude || 0);
+            const minElevation = Math.min(...elevations);
+            const maxElevation = Math.max(...elevations);
+            const elevationRange = maxElevation - minElevation;
+            
+            // Çizim alanı marjinleri
+            const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+            const width = canvas.width - margin.left - margin.right;
+            const height = canvas.height - margin.top - margin.bottom;
+            
+            // Ölçeklendirme fonksiyonları
+            const scaleX = width
+            // Ölçeklendirme fonksiyonları
+            const scaleX = width / (points.length - 1);
+            const scaleY = height / elevationRange;
 
-        // Profil çizgisi
-        ctx.beginPath();
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
-        points.forEach((point, i) => {
-            const x = margin.left + (i * scaleX);
-            const y = margin.top + height - ((point.altitude - minElevation) * scaleY);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    }
+            function drawBaseProfile() {
+                // Izgara
+                ctx.beginPath();
+                ctx.strokeStyle = '#e5e5e5';
+                ctx.lineWidth = 0.5;
+                for (let i = 0; i <= 5; i++) {
+                    const y = margin.top + (height * i / 5);
+                    ctx.moveTo(margin.left, y);
+                    ctx.lineTo(width + margin.left, y);
+                    
+                    const elevation = Math.round(maxElevation - (elevationRange * i / 5));
+                    ctx.fillStyle = '#666';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(`${elevation}m`, 5, y + 4);
+                }
+                ctx.stroke();
 
-    // İlk çizimi yap
-    drawBaseProfile();
+                // Profil çizgisi
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                points.forEach((point, i) => {
+                    const x = margin.left + (i * scaleX);
+                    const y = margin.top + height - ((point.altitude - minElevation) * scaleY);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
 
-    // Geri kalan kod aynı kalacak...
+            // İlk çizimi yap
+            drawBaseProfile();
 
             // İnteraktif overlay için mouse takibi
             let mapMarker = null;
@@ -381,27 +392,45 @@
                     ctx.arc(lineX, tooltipY, 4, 0, Math.PI * 2);
                     ctx.fill();
 
-                    // Tooltip
-                    // drawElevationProfile fonksiyonunda mousemove event listener'ında tooltip kısmını güncelleyin:
-                    // Tooltip kısmını bu şekilde değiştirin:
-                    const tooltipText = [
-                        `Yükseklik: ${Math.round(point.altitude)}m`,
-                        point.grade ? `Eğim: %${point.grade.toFixed(1)}` : null,
-                        point.cadence ? `Kadans: ${Math.round(point.cadence)} rpm` : null,
-                        point.power ? `Güç: ${Math.round(point.power)}w` : null
-                    ].filter(Boolean).join(' | ');
-                    const textWidth = ctx.measureText(tooltipText).width;
-                    
+                    // Gelişmiş tooltip içeriği
+                    const tooltipData = {
+                        "Yükseklik": `${Math.round(point.altitude)}m`,
+                        "Eğim": point.grade ? `%${point.grade.toFixed(1)}` : '-',
+                        "Kadans": point.cadence ? `${Math.round(point.cadence)} rpm` : '-',
+                        "Güç": point.power ? `${Math.round(point.power)}w` : '-'
+                    };
+
+                    // Tooltip boyutları
+                    ctx.font = '12px Arial';
+                    const lineHeight = 20;
+                    const padding = 10;
+                    const boxWidth = 160;
+                    const boxHeight = Object.keys(tooltipData).length * lineHeight + padding * 2;
+
                     // Tooltip pozisyonunu ayarla
-                    let tooltipX = lineX + 5;
-                    if (tooltipX + textWidth + 10 > canvas.width) {
-                        tooltipX = lineX - textWidth - 15;
+                    let boxX = lineX + 10;
+                    if (boxX + boxWidth > canvas.width) {
+                        boxX = lineX - boxWidth - 10;
                     }
 
+                    let boxY = tooltipY - boxHeight / 2;
+                    if (boxY < margin.top) {
+                        boxY = margin.top;
+                    } else if (boxY + boxHeight > canvas.height - margin.bottom) {
+                        boxY = canvas.height - margin.bottom - boxHeight;
+                    }
+
+                    // Tooltip arka planı
                     ctx.fillStyle = 'rgba(0,0,0,0.8)';
-                    ctx.fillRect(tooltipX, tooltipY - 20, textWidth + 10, 20);
+                    ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+
+                    // Tooltip metinleri
                     ctx.fillStyle = '#fff';
-                    ctx.fillText(tooltipText, tooltipX + 5, tooltipY - 5);
+                    let y = boxY + padding + 12;
+                    Object.entries(tooltipData).forEach(([label, value]) => {
+                        ctx.fillText(`${label}: ${value}`, boxX + padding, y);
+                        y += lineHeight;
+                    });
 
                     // Harita üzerinde marker'ı güncelle
                     if (mapMarker) {
@@ -415,7 +444,7 @@
                         weight: 2
                     }).addTo(currentMap);
 
-                    // Haritayı bu noktaya panla (opsiyonel)
+                    // Haritayı bu noktaya panla
                     currentMap.panTo(point.latlng);
                 }
             });
@@ -459,4 +488,3 @@
     </script>
 </body>
 </html>
-                
