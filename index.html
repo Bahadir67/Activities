@@ -200,9 +200,9 @@
                 );
                 const activity = await activityResponse.json();
 
-                // Stream verilerini al (kadans, eğim, yükseklik)
+                // Stream verisini alırken power'ı da ekleyin:
                 const streamsResponse = await fetch(
-                    `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,latlng,altitude,cadence,grade_smooth&key_by_type=true`,
+                    `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,latlng,altitude,cadence,grade_smooth,watts&key_by_type=true`,
                     {
                         headers: {
                             'Authorization': `Bearer ${accessToken}`
@@ -382,7 +382,14 @@
                     ctx.fill();
 
                     // Tooltip
-                    const tooltipText = `Yükseklik: ${Math.round(point.altitude)}m${point.cadence ? `, Kadans: ${Math.round(point.cadence)}` : ''}`;
+                    // drawElevationProfile fonksiyonunda mousemove event listener'ında tooltip kısmını güncelleyin:
+                    // Tooltip kısmını bu şekilde değiştirin:
+                    const tooltipText = [
+                        `Yükseklik: ${Math.round(point.altitude)}m`,
+                        point.grade ? `Eğim: %${point.grade.toFixed(1)}` : null,
+                        point.cadence ? `Kadans: ${Math.round(point.cadence)} rpm` : null,
+                        point.power ? `Güç: ${Math.round(point.power)}w` : null
+                    ].filter(Boolean).join(' | ');
                     const textWidth = ctx.measureText(tooltipText).width;
                     
                     // Tooltip pozisyonunu ayarla
