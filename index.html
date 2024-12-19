@@ -1,130 +1,230 @@
-async function showDetailedActivityMap(activityId) {
-    try {
-        // Aktivite streams verisini al
-        const streamsResponse = await fetch(
-            `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,altitude,cadence&key_by_type=true`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                }
-            });
-        const streams = await streamsResponse.json();
-        
-        const mapDiv = document.getElementById('activityMap');
-        mapDiv.innerHTML = '';
-        
-        // Info panel oluştur
-        const infoPanel = document.createElement('div');
-        infoPanel.id = 'mapInfoPanel';
-        infoPanel.className = 'absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000] pointer-events-none';
-        mapDiv.appendChild(infoPanel);
-        
-        // Haritayı başlat
-        if (currentMap) {
-            currentMap.remove();
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strava Aktivite Listesi</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <style>
+        .legend {
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
-        
-        currentMap = L.map(mapDiv);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(currentMap);
+        .hover-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            z-index: 1000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Önceki HTML içeriği aynı kalacak, sadece script kısmını değiştireceğiz -->
+    <!-- ... (mevcut HTML kodları) ... -->
 
-        // Rota verilerini hazırla
-        const coordinates = streams.latlng.data;
-        const elevations = streams.altitude.data;
-        const cadences = streams.cadence ? streams.cadence.data : null;
-        
-        // Rota çizgisini oluştur
-        const routePoints = coordinates.map((coord, index) => ({
-            latlng: L.latLng(coord[0], coord[1]),
-            elevation: elevations[index],
-            cadence: cadences ? cadences[index] : null
-        }));
+    <script>
+        // Önceki değişkenler ve temel fonksiyonlar aynı kalacak
+        const CLIENT_ID = '18166';
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities';
+        let accessToken = '';
+        let currentMap = null;
+        let allActivities = [];
 
-        // Gradient renklerini hesapla
-        const minElevation = Math.min(...elevations);
-        const maxElevation = Math.max(...elevations);
-        
-        // Rota segmentlerini oluştur
-        for (let i = 0; i < routePoints.length - 1; i++) {
-            const segment = L.polyline(
-                [routePoints[i].latlng, routePoints[i + 1].latlng],
-                {
-                    color: getElevationColor(routePoints[i].elevation, minElevation, maxElevation),
-                    weight: 4
+        // ... (diğer mevcut fonksiyonlar aynı kalacak) ...
+
+        async function showDetailedActivityMap(activityId) {
+            try {
+                // Aktivite streams verisini al
+                const streamsResponse = await fetch(
+                    `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=latlng,altitude,cadence&key_by_type=true`, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+                const streams = await streamsResponse.json();
+                
+                const mapDiv = document.getElementById('activityMap');
+                mapDiv.innerHTML = '';
+                
+                // Info panel oluştur
+                const infoPanel = document.createElement('div');
+                infoPanel.id = 'mapInfoPanel';
+                infoPanel.className = 'hover-info';
+                mapDiv.appendChild(infoPanel);
+                
+                // Haritayı başlat
+                if (currentMap) {
+                    currentMap.remove();
                 }
-            ).addTo(currentMap);
+                
+                currentMap = L.map(mapDiv);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(currentMap);
 
-            // Her segment için hover olayı
-            segment.on('mouseover', (e) => {
-                const point = routePoints[i];
-                updateInfoPanel(point.elevation, point.cadence);
-                segment.setStyle({ weight: 6 });
-            });
+                // Rota verilerini hazırla
+                const coordinates = streams.latlng.data;
+                const elevations = streams.altitude.data;
+                const cadences = streams.cadence ? streams.cadence.data : null;
+                
+                // Rota çizgisini oluştur
+                const routePoints = coordinates.map((coord, index) => ({
+                    latlng: L.latLng(coord[0], coord[1]),
+                    elevation: elevations[index],
+                    cadence: cadences ? cadences[index] : null
+                }));
 
-            segment.on('mouseout', () => {
-                segment.setStyle({ weight: 4 });
-            });
+                // Gradient renklerini hesapla
+                const minElevation = Math.min(...elevations);
+                const maxElevation = Math.max(...elevations);
+                
+                // Rota segmentlerini oluştur
+                for (let i = 0; i < routePoints.length - 1; i++) {
+                    const segment = L.polyline(
+                        [routePoints[i].latlng, routePoints[i + 1].latlng],
+                        {
+                            color: getElevationColor(routePoints[i].elevation, minElevation, maxElevation),
+                            weight: 4
+                        }
+                    ).addTo(currentMap);
+
+                    // Her segment için hover olayı
+                    segment.on('mouseover', (e) => {
+                        const point = routePoints[i];
+                        updateInfoPanel(point.elevation, point.cadence);
+                        segment.setStyle({ weight: 6 });
+                    });
+
+                    segment.on('mouseout', () => {
+                        segment.setStyle({ weight: 4 });
+                    });
+                }
+
+                // Haritayı rota sınırlarına göre ayarla
+                currentMap.fitBounds(L.latLngBounds(coordinates.map(coord => L.latLng(coord[0], coord[1]))));
+                
+                // Renk ölçeği ekle
+                addElevationLegend(currentMap, minElevation, maxElevation);
+                
+            } catch (error) {
+                console.error('Detaylı harita gösterilirken hata:', error);
+                mapDiv.innerHTML = 'Harita yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
+            }
         }
 
-        // Haritayı rota sınırlarına göre ayarla
-        currentMap.fitBounds(L.latLngBounds(coordinates.map(coord => L.latLng(coord[0], coord[1]))));
-        
-        // Renk ölçeği ekle
-        addElevationLegend(currentMap, minElevation, maxElevation);
-        
-    } catch (error) {
-        console.error('Detaylı harita gösterilirken hata:', error);
-        mapDiv.innerHTML = 'Harita yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
-    }
-}
+        function updateInfoPanel(elevation, cadence) {
+            const panel = document.getElementById('mapInfoPanel');
+            panel.innerHTML = `
+                <div class="text-sm">
+                    <div class="font-semibold">Yükseklik: ${elevation.toFixed(1)}m</div>
+                    ${cadence ? `<div class="font-semibold">Kadans: ${cadence} rpm</div>` : ''}
+                </div>
+            `;
+        }
 
-function updateInfoPanel(elevation, cadence) {
-    const panel = document.getElementById('mapInfoPanel');
-    panel.innerHTML = `
-        <div class="text-sm">
-            <div class="font-semibold">Yükseklik: ${elevation.toFixed(1)}m</div>
-            ${cadence ? `<div class="font-semibold">Kadans: ${cadence} rpm</div>` : ''}
-        </div>
-    `;
-}
+        function getElevationColor(elevation, min, max) {
+            const percentage = (elevation - min) / (max - min);
+            const hue = ((1 - percentage) * 120).toString(10);
+            return `hsl(${hue}, 70%, 50%)`;
+        }
 
-function getElevationColor(elevation, min, max) {
-    // Yüksekliğe göre renk gradyanı oluştur
-    const percentage = (elevation - min) / (max - min);
-    // Yeşilden kırmızıya gradyan
-    const hue = ((1 - percentage) * 120).toString(10);
-    return `hsl(${hue}, 70%, 50%)`;
-}
+        function addElevationLegend(map, min, max) {
+            const legend = L.control({ position: 'bottomright' });
+            
+            legend.onAdd = function() {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = `
+                    <div class="text-xs font-semibold mb-1">Yükseklik</div>
+                    <div style="background: linear-gradient(to bottom, hsl(0, 70%, 50%), hsl(120, 70%, 50%)); width: 20px; height: 100px; display: inline-block;"></div>
+                    <div class="text-xs">
+                        <div>${max.toFixed(0)}m</div>
+                        <div>${min.toFixed(0)}m</div>
+                    </div>
+                `;
+                return div;
+            };
+            
+            legend.addTo(map);
+        }
 
-function addElevationLegend(map, min, max) {
-    const legend = L.control({ position: 'bottomright' });
-    
-    legend.onAdd = function() {
-        const div = L.DomUtil.create('div', 'info legend bg-white p-2 rounded-lg shadow-lg');
-        div.innerHTML = `
-            <div class="text-xs font-semibold mb-1">Yükseklik</div>
-            <div style="background: linear-gradient(to bottom, hsl(0, 70%, 50%), hsl(120, 70%, 50%)); width: 20px; height: 100px; display: inline-block;"></div>
-            <div class="text-xs">
-                <div>${max.toFixed(0)}m</div>
-                <div>${min.toFixed(0)}m</div>
-            </div>
-        `;
-        return div;
-    };
-    
-    legend.addTo(map);
-}
+        // showActivityDetails fonksiyonunu güncelle
+        async function showActivityDetails(activityId) {
+            const modal = document.getElementById('activityModal');
+            const statsDiv = document.getElementById('activityStats');
+            
+            // Önceki içeriği temizle
+            cleanupModal();
+            
+            modal.classList.remove('hidden');
+            statsDiv.innerHTML = '<div class="col-span-2">Yükleniyor...</div>';
+            
+            try {
+                const response = await fetch(`https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=true`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Aktivite detayları alınamadı');
+                }
 
-// showActivityDetails fonksiyonunu güncelle
-async function showActivityDetails(activityId) {
-    // ... (mevcut kod) ...
-    
-    // Harita gösterme kısmını değiştir
-    if (activity.map?.summary_polyline) {
-        setTimeout(() => {
-            showDetailedActivityMap(activityId);
-        }, 100);
-    }
-    
-    // ... (mevcut kod) ...
-}
+                const activity = await response.json();
+                
+                // İstatistikleri göster
+                statsDiv.innerHTML = `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Mesafe</div>
+                        <div class="font-semibold">${(activity.distance / 1000).toFixed(2)} km</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Süre</div>
+                        <div class="font-semibold">${new Date(activity.moving_time * 1000).toISOString().substr(11, 8)}</div>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Ortalama Hız</div>
+                        <div class="font-semibold">${(activity.average_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    ${activity.max_speed ? `
+                    <div class="bg-gray-50 p-3 rounded">
+                        <div class="text-sm text-gray-500">Maksimum Hız</div>
+                        <div class="font-semibold">${(activity.max_speed * 3.6).toFixed(2)} km/s</div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                // Detayları göster
+                document.getElementById('activityDetails').innerHTML = `
+                    <div><strong>Başlangıç:</strong> ${new Date(activity.start_date_local).toLocaleString('tr-TR')}</div>
+                    <div><strong>Konum:</strong> ${activity.location_city || 'Belirtilmemiş'}</div>
+                    ${activity.description ? `<div><strong>Açıklama:</strong> ${activity.description}</div>` : ''}
+                `;
+                
+                // Detaylı harita göster
+                if (activity.map?.summary_polyline) {
+                    setTimeout(() => {
+                        showDetailedActivityMap(activityId);
+                    }, 100);
+                } else {
+                    document.getElementById('activityMap').innerHTML = 'Bu aktivite için harita bulunmuyor.';
+                }
+                
+            } catch (error) {
+                console.error('Aktivite detayları alınırken hata:', error);
+                statsDiv.innerHTML = 'Aktivite detayları alınırken bir hata oluştu. Lütfen tekrar deneyin.';
+            }
+        }
+
+        // ... (diğer mevcut fonksiyonlar aynı kalacak) ...
+    </script>
+</body>
+</html>
