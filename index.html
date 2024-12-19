@@ -35,9 +35,10 @@
         <!-- Ana Başlık ve Butonlar -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-800 mb-4">Strava Aktiviteleri</h1>
-            <button id="authorizeBtn" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+            <a href="https://www.strava.com/oauth/authorize?client_id=18166&response_type=code&redirect_uri=https://bahadir67.github.io/Activities/&scope=activity:read_all" 
+               class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded no-underline inline-block">
                 Strava ile Bağlan
-            </button>
+            </a>
             <button id="getActivitiesBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded ml-2 hidden">
                 Aktiviteleri Getir
             </button>
@@ -82,7 +83,7 @@
 
     <script>
         const CLIENT_ID = '18166';
-        const REDIRECT_URI = 'https://bahadir67.github.io/Activities';
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities/';
         let accessToken = '';
         let currentMap = null;
 
@@ -90,16 +91,11 @@
         const urlParams = new URLSearchParams(window.location.search);
         const authCode = urlParams.get('code');
 
-        document.getElementById('authorizeBtn').addEventListener('click', () => {
-            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&scope=activity:read_all`;
-            window.location.href = authUrl;
-        });
-
         document.getElementById('getActivitiesBtn').addEventListener('click', getActivities);
 
         // Sayfa yüklendiğinde auth code varsa token al
         if (authCode) {
-            document.getElementById('authorizeBtn').classList.add('hidden');
+            document.querySelector('.bg-orange-500').classList.add('hidden');
             getToken(authCode);
         }
 
@@ -131,7 +127,7 @@
             }
         }
 
-        async function getActivities() {
+async function getActivities() {
             if (!accessToken) {
                 alert('Lütfen önce Strava ile bağlanın!');
                 return;
@@ -299,7 +295,7 @@
             drawElevationProfile(points);
         }
 
-        function drawElevationProfile(points) {
+function drawElevationProfile(points) {
             const canvas = document.getElementById('elevationCanvas');
             const ctx = canvas.getContext('2d');
             const container = document.getElementById('elevationProfile');
@@ -319,8 +315,6 @@
             const width = canvas.width - margin.left - margin.right;
             const height = canvas.height - margin.top - margin.bottom;
             
-            // Ölçeklendirme fonksiyonları
-            const scaleX = width
             // Ölçeklendirme fonksiyonları
             const scaleX = width / (points.length - 1);
             const scaleY = height / elevationRange;
@@ -444,7 +438,7 @@
                         weight: 2
                     }).addTo(currentMap);
 
-                    // Haritayı bu noktaya panla
+                    // Haritayı bu noktaya panla (opsiyonel)
                     currentMap.panTo(point.latlng);
                 }
             });
