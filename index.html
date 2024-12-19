@@ -1,172 +1,455 @@
-// HTML'de modal içindeki activityMap div'inden sonra ekleyin
-`<div id="elevationProfile" class="h-40 bg-white rounded-lg mt-4 p-2">
-    <canvas id="elevationCanvas"></canvas>
-</div>`
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strava Aktivite Listesi</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <style>
+        .info {
+            background: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        }
+        .legend {
+            background: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        }
+        #elevationProfile {
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e5e5e5;
+        }
+        #elevationCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Ana Başlık ve Butonlar -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Strava Aktiviteleri</h1>
+            <button id="authorizeBtn" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded">
+                Strava ile Bağlan
+            </button>
+            <button id="getActivitiesBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded ml-2 hidden">
+                Aktiviteleri Getir
+            </button>
+        </div>
 
-// JavaScript koduna ekleyin:
-function drawElevationProfile(points, mapDiv) {
-    const canvas = document.getElementById('elevationCanvas');
-    const ctx = canvas.getContext('2d');
-    const container = document.getElementById('elevationProfile');
-    
-    // Canvas boyutlarını ayarla
-    canvas.width = container.offsetWidth - 20; // padding için -20
-    canvas.height = container.offsetHeight - 20;
-    
-    // Yükseklik değerlerini al
-    const elevations = points.map(p => p.altitude || 0);
-    const minElevation = Math.min(...elevations);
-    const maxElevation = Math.max(...elevations);
-    const elevationRange = maxElevation - minElevation;
-    
-    // Çizim alanı marjinleri
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 };
-    const width = canvas.width - margin.left - margin.right;
-    const height = canvas.height - margin.top - margin.bottom;
-    
-    // Ölçeklendirme fonksiyonları
-    const scaleX = width / (points.length - 1);
-    const scaleY = height / elevationRange;
-    
-    // Izgara çiz
-    ctx.beginPath();
-    ctx.strokeStyle = '#e5e5e5';
-    ctx.lineWidth = 0.5;
-    
-    // Yatay ızgara çizgileri
-    for (let i = 0; i <= 5; i++) {
-        const y = margin.top + (height * i / 5);
-        ctx.moveTo(margin.left, y);
-        ctx.lineTo(width + margin.left, y);
-        
-        // Yükseklik etiketleri
-        const elevation = Math.round(maxElevation - (elevationRange * i / 5));
-        ctx.fillStyle = '#666';
-        ctx.font = '10px Arial';
-        ctx.fillText(`${elevation}m`, 5, y + 4);
-    }
-    ctx.stroke();
-    
-    // Profil çizgisi
-    ctx.beginPath();
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    
-    points.forEach((point, i) => {
-        const x = margin.left + (i * scaleX);
-        const y = margin.top + height - ((point.altitude - minElevation) * scaleY);
-        
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-    ctx.stroke();
-    
-    // İnteraktif overlay için mouse takibi
-    let mapMarker = null;
-    
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left - margin.left;
-        const index = Math.round(mouseX / scaleX);
-        
-        if (index >= 0 && index < points.length) {
-            // Önceki çizimi temizle
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Profili tekrar çiz
-            drawBaseProfile();
-            
-            // Dikey çizgi çiz
-            ctx.beginPath();
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
-            const lineX = margin.left + (index * scaleX);
-            ctx.moveTo(lineX, margin.top);
-            ctx.lineTo(lineX, height + margin.top);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Noktanın değerlerini göster
-            const point = points[index];
-            const tooltipY = margin.top + height - ((point.altitude - minElevation) * scaleY);
-            
-            ctx.fillStyle = 'rgba(0,0,0,0.8)';
-            ctx.beginPath();
-            ctx.arc(lineX, tooltipY, 4, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Tooltip
-            const tooltipText = `Yükseklik: ${Math.round(point.altitude)}m${point.cadence ? `, Kadans: ${Math.round(point.cadence)}` : ''}`;
-            ctx.fillStyle = 'rgba(0,0,0,0.8)';
-            ctx.fillRect(lineX + 5, tooltipY - 20, ctx.measureText(tooltipText).width + 10, 20);
-            ctx.fillStyle = '#fff';
-            ctx.fillText(tooltipText, lineX + 10, tooltipY - 5);
-            
-            // Harita üzerinde marker'ı güncelle
-            if (mapMarker) {
-                currentMap.removeLayer(mapMarker);
-            }
-            mapMarker = L.circleMarker(point.latlng, {
-                radius: 8,
-                color: '#3b82f6',
-                fillColor: '#3b82f6',
-                fillOpacity: 1
-            }).addTo(currentMap);
-        }
-    });
-    
-    canvas.addEventListener('mouseout', () => {
-        // Mouse çıkınca marker'ı kaldır
-        if (mapMarker) {
-            currentMap.removeLayer(mapMarker);
-            mapMarker = null;
-        }
-        
-        // Profili tekrar çiz
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawBaseProfile();
-    });
-    
-    // Temel profili çizme fonksiyonu
-    function drawBaseProfile() {
-        // Izgara
-        ctx.beginPath();
-        ctx.strokeStyle = '#e5e5e5';
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i <= 5; i++) {
-            const y = margin.top + (height * i / 5);
-            ctx.moveTo(margin.left, y);
-            ctx.lineTo(width + margin.left, y);
-            
-            const elevation = Math.round(maxElevation - (elevationRange * i / 5));
-            ctx.fillStyle = '#666';
-            ctx.font = '10px Arial';
-            ctx.fillText(`${elevation}m`, 5, y + 4);
-        }
-        ctx.stroke();
-        
-        // Profil çizgisi
-        ctx.beginPath();
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 2;
-        points.forEach((point, i) => {
-            const x = margin.left + (i * scaleX);
-            const y = margin.top + height - ((point.altitude - minElevation) * scaleY);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+        <!-- Aktivite Listesi -->
+        <div id="activitiesList" class="hidden">
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarih</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">İsim</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tip</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mesafe (km)</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Süre</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activitiesTableBody" class="divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div id="activityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-4/5 shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold" id="modalTitle">Aktivite Detayları</h3>
+                    <button id="closeModal" class="text-gray-600 hover:text-gray-900">&times;</button>
+                </div>
+                <div id="activityStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                </div>
+                <div id="activityMap" class="h-96 bg-gray-100 rounded-lg">
+                </div>
+                <div id="elevationProfile" class="h-40 bg-white rounded-lg mt-4 p-2">
+                    <canvas id="elevationCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '18166';
+        const REDIRECT_URI = 'https://bahadir67.github.io/Activities';
+        let accessToken = '';
+        let currentMap = null;
+
+        // URL'den authorization code'u al
+        const urlParams = new URLSearchParams(window.location.search);
+        const authCode = urlParams.get('code');
+
+        document.getElementById('authorizeBtn').addEventListener('click', () => {
+            const authUrl = `https://www.strava.com/oauth/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${REDIRECT_URI}&scope=activity:read_all`;
+            window.location.href = authUrl;
         });
-        ctx.stroke();
-    }
-}
 
-// initializeEnhancedMap fonksiyonunu güncelleyin
-function initializeEnhancedMap(container, streams) {
-    // ... (mevcut harita kodu) ...
-    
-    // Harita ayarlandıktan sonra yükselti profilini çiz
-    drawElevationProfile(points, container);
-}
+        document.getElementById('getActivitiesBtn').addEventListener('click', getActivities);
+
+        // Sayfa yüklendiğinde auth code varsa token al
+        if (authCode) {
+            document.getElementById('authorizeBtn').classList.add('hidden');
+            getToken(authCode);
+        }
+
+        async function getToken(code) {
+            const tokenUrl = 'https://www.strava.com/oauth/token';
+            const data = {
+                client_id: CLIENT_ID,
+                client_secret: '8165616867e107b8f2fbd6a6acd3baa067d3eef2',
+                code: code,
+                grant_type: 'authorization_code'
+            };
+
+            try {
+                const response = await fetch(tokenUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const tokenData = await response.json();
+                accessToken = tokenData.access_token;
+                console.log('Token alındı:', accessToken);
+                
+                document.getElementById('getActivitiesBtn').classList.remove('hidden');
+            } catch (error) {
+                console.error('Token alma hatası:', error);
+            }
+        }
+
+        async function getActivities() {
+            if (!accessToken) {
+                alert('Lütfen önce Strava ile bağlanın!');
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    'https://www.strava.com/api/v3/athlete/activities',
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+
+                const activities = await response.json();
+                console.log('Aktiviteler:', activities);
+                displayActivities(activities);
+            } catch (error) {
+                console.error('Aktivite alma hatası:', error);
+            }
+        }
+
+        function displayActivities(activities) {
+            const tableBody = document.getElementById('activitiesTableBody');
+            tableBody.innerHTML = '';
+
+            activities.forEach(activity => {
+                const row = document.createElement('tr');
+                const date = new Date(activity.start_date_local).toLocaleDateString('tr-TR');
+                const distance = (activity.distance / 1000).toFixed(2);
+                const duration = new Date(activity.moving_time * 1000).toISOString().substr(11, 8);
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600 cursor-pointer">${activity.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${activity.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${distance}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration}</td>
+                `;
+
+                row.querySelector('td:nth-child(2)').addEventListener('click', () => showActivityDetails(activity.id));
+                tableBody.appendChild(row);
+            });
+
+            document.getElementById('activitiesList').classList.remove('hidden');
+        }
+
+        async function showActivityDetails(activityId) {
+            const modal = document.getElementById('activityModal');
+            const statsDiv = document.getElementById('activityStats');
+            const mapDiv = document.getElementById('activityMap');
+            
+            modal.classList.remove('hidden');
+            mapDiv.innerHTML = 'Harita yükleniyor...';
+
+            try {
+                // Ana aktivite verilerini al
+                const activityResponse = await fetch(
+                    `https://www.strava.com/api/v3/activities/${activityId}?include_all_efforts=true`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+                const activity = await activityResponse.json();
+
+                // Stream verilerini al (kadans, eğim, yükseklik)
+                const streamsResponse = await fetch(
+                    `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=time,latlng,altitude,cadence,grade_smooth&key_by_type=true`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    }
+                );
+                const streams = await streamsResponse.json();
+
+                // Aktivite detaylarını göster
+                displayActivityStats(activity, streams);
+
+                // Haritayı göster
+                if (streams.latlng?.data) {
+                    initializeEnhancedMap(mapDiv, streams);
+                } else {
+                    mapDiv.innerHTML = 'Bu aktivite için harita verisi bulunmuyor.';
+                }
+
+            } catch (error) {
+                console.error('Veri alma hatası:', error);
+                mapDiv.innerHTML = 'Veriler yüklenemedi.';
+            }
+        }
+
+        function displayActivityStats(activity, streams) {
+            const statsDiv = document.getElementById('activityStats');
+            
+            // Ortalama kadans hesapla
+            const avgCadence = streams.cadence?.data ? 
+                Math.round(streams.cadence.data.reduce((a, b) => a + b, 0) / streams.cadence.data.length) : 
+                null;
+
+            statsDiv.innerHTML = `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Mesafe</div>
+                    <div class="text-lg font-semibold">${(activity.distance / 1000).toFixed(2)} km</div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Süre</div>
+                    <div class="text-lg font-semibold">${new Date(activity.moving_time * 1000).toISOString().substr(11, 8)}</div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Ortalama Hız</div>
+                    <div class="text-lg font-semibold">${(activity.average_speed * 3.6).toFixed(1)} km/s</div>
+                </div>
+                ${avgCadence ? `
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Ortalama Kadans</div>
+                    <div class="text-lg font-semibold">${avgCadence} rpm</div>
+                </div>
+                ` : ''}
+            `;
+        }
+
+        function initializeEnhancedMap(container, streams) {
+            if (currentMap) {
+                currentMap.remove();
+            }
+
+            currentMap = L.map(container);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(currentMap);
+
+            // Rota noktalarını hazırla
+            const points = streams.latlng.data.map((coord, i) => ({
+                latlng: L.latLng(coord[0], coord[1]),
+                altitude: streams.altitude?.data[i],
+                cadence: streams.cadence?.data[i],
+                grade: streams.grade_smooth?.data[i]
+            }));
+
+            // Ana rotayı çiz
+            const path = L.polyline(points.map(p => p.latlng), {
+                color: 'red',
+                weight: 3
+            }).addTo(currentMap);
+
+            // Haritayı rota sınırlarına göre ayarla
+            currentMap.fitBounds(path.getBounds());
+
+            // Yükselti profilini çiz
+            drawElevationProfile(points);
+        }
+
+        function drawElevationProfile(points) {
+            const canvas = document.getElementById('elevationCanvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('elevationProfile');
+            
+            // Canvas boyutlarını ayarla
+            canvas.width = container.offsetWidth - 20;
+            canvas.height = container.offsetHeight - 20;
+            
+            // Yükseklik değerlerini al
+            const elevations = points.map(p => p.altitude || 0);
+            const minElevation = Math.min(...elevations);
+            const maxElevation = Math.max(...elevations);
+            const elevationRange = maxElevation - minElevation;
+            
+            // Çizim alanı marjinleri
+            const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+            const width = canvas.width - margin.left - margin.right;
+            const height = canvas.height - margin.top - margin.bottom;
+            
+            // Ölçeklendirme fonksiyonları
+            const scaleX = width / (points.length - 1);
+            const scaleY = height / elevationRange;
+
+            function drawBaseProfile() {
+                // Izgara
+                ctx.beginPath();
+                ctx.strokeStyle = '#e5e5e5';
+                ctx.lineWidth = 0.5;
+                for (let i = 0; i <= 5; i++) {
+                    const y = margin.top + (height * i / 5);
+                    ctx.moveTo(margin.left, y);
+                    ctx.lineTo(width + margin.left, y);
+                    
+                    const elevation = Math.round(maxElevation - (elevationRange * i / 5));
+                    ctx.fillStyle = '#666
+                    const elevation = Math.round(maxElevation - (elevationRange * i / 5));
+                    ctx.fillStyle = '#666';
+                    ctx.font = '10px Arial';
+                    ctx.fillText(`${elevation}m`, 5, y + 4);
+                }
+                ctx.stroke();
+
+                // Profil çizgisi
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                points.forEach((point, i) => {
+                    const x = margin.left + (i * scaleX);
+                    const y = margin.top + height - ((point.altitude - minElevation) * scaleY);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            // İlk çizimi yap
+            drawBaseProfile();
+
+            // İnteraktif overlay için mouse takibi
+            let mapMarker = null;
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left - margin.left;
+                const index = Math.round(mouseX / scaleX);
+
+                if (index >= 0 && index < points.length) {
+                    // Önceki çizimi temizle
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawBaseProfile();
+
+                    // Dikey çizgi çiz
+                    ctx.beginPath();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    const lineX = margin.left + (index * scaleX);
+                    ctx.moveTo(lineX, margin.top);
+                    ctx.lineTo(lineX, height + margin.top);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Noktanın değerlerini göster
+                    const point = points[index];
+                    const tooltipY = margin.top + height - ((point.altitude - minElevation) * scaleY);
+
+                    // Nokta işaretleyici
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.beginPath();
+                    ctx.arc(lineX, tooltipY, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Tooltip
+                    const tooltipText = `Yükseklik: ${Math.round(point.altitude)}m${point.cadence ? `, Kadans: ${Math.round(point.cadence)}` : ''}`;
+                    const textWidth = ctx.measureText(tooltipText).width;
+                    
+                    // Tooltip pozisyonunu ayarla
+                    let tooltipX = lineX + 5;
+                    if (tooltipX + textWidth + 10 > canvas.width) {
+                        tooltipX = lineX - textWidth - 15;
+                    }
+
+                    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+                    ctx.fillRect(tooltipX, tooltipY - 20, textWidth + 10, 20);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillText(tooltipText, tooltipX + 5, tooltipY - 5);
+
+                    // Harita üzerinde marker'ı güncelle
+                    if (mapMarker) {
+                        currentMap.removeLayer(mapMarker);
+                    }
+                    mapMarker = L.circleMarker(point.latlng, {
+                        radius: 8,
+                        color: '#3b82f6',
+                        fillColor: '#3b82f6',
+                        fillOpacity: 1,
+                        weight: 2
+                    }).addTo(currentMap);
+
+                    // Haritayı bu noktaya panla (opsiyonel)
+                    currentMap.panTo(point.latlng);
+                }
+            });
+
+            canvas.addEventListener('mouseout', () => {
+                if (mapMarker) {
+                    currentMap.removeLayer(mapMarker);
+                    mapMarker = null;
+                }
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawBaseProfile();
+            });
+
+            // Pencere yeniden boyutlandırıldığında yeniden çiz
+            window.addEventListener('resize', () => {
+                canvas.width = container.offsetWidth - 20;
+                canvas.height = container.offsetHeight - 20;
+                drawBaseProfile();
+            });
+        }
+
+        // Modal kapatma
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('activityModal').classList.add('hidden');
+            if (currentMap) {
+                currentMap.remove();
+                currentMap = null;
+            }
+        });
+
+        // ESC tuşu ile modalı kapatma
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.getElementById('activityModal').classList.add('hidden');
+                if (currentMap) {
+                    currentMap.remove();
+                    currentMap = null;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+                
